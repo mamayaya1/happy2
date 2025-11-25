@@ -4,10 +4,7 @@ import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-// Ultraviolet Node Archive API
-import ultraviolet from "@titaniumnetwork-dev/ultraviolet";
-const { uvPath, createBareServer } = ultraviolet;
-
+import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { publicPath } from "ultraviolet-static";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
@@ -39,31 +36,18 @@ fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: f
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-async function main() {
-  // ✅ Use createBareServer() function, not BareServer class
-  const bare = createBareServer();
+// Example routes
+fastify.get("/debug", (req, reply) => {
+  reply.send({ ok: true });
+});
 
-  fastify.all("/service/*", (req, reply) => {
-    bare.request(req.raw, reply.raw);
-  });
+let port = parseInt(process.env.PORT || "");
+if (isNaN(port)) port = 8080;
 
-  fastify.get("/debug", (req, reply) => {
-    reply.send({ ok: true });
-  });
-
-  let port = parseInt(process.env.PORT || "");
-  if (isNaN(port)) port = 8080;
-
-  fastify.listen({ port, host: "0.0.0.0" }, (err) => {
-    if (err) {
-      console.error(err);
-      process.exit(1);
-    }
-    console.log(`Listening on http://${hostname()}:${port}`);
-  });
-}
-
-main().catch((err) => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
+fastify.listen({ port, host: "0.0.0.0" }, (err) => {
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+  console.log(`Listening on http://${hostname()}:${port}`);
 });
