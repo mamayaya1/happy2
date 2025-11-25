@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { hostname } from "node:os";
+
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
@@ -32,13 +33,16 @@ const fastify = Fastify({
 
 // Static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
-fastify.get("/uv/uv.config.js", (req, res) => res.sendFile("uv/uv.config.js", publicPath));
+fastify.get("/uv/uv.config.js", (req, res) =>
+  res.sendFile("uv/uv.config.js", publicPath)
+);
 fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: false });
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// Bare proxy route
-const bare = createBareServer();
+// ✅ Bare proxy route — directory string must start and end with "/"
+const bare = createBareServer("/bare/");
+
 fastify.all("/service/*", (req, reply) => {
   bare.request(req.raw, reply.raw);
 });
