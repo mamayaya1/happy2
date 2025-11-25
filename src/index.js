@@ -9,7 +9,7 @@ import { uvPath, createBareServer } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-// Create Fastify instance with custom serverFactory
+// Create Fastify instance
 const fastify = Fastify({
   serverFactory: (handler) => {
     return createServer()
@@ -25,18 +25,14 @@ const fastify = Fastify({
   },
 });
 
-// Register static assets
+// Static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
-
-fastify.get("/uv/uv.config.js", (req, res) => {
-  return res.sendFile("uv/uv.config.js", publicPath);
-});
-
+fastify.get("/uv/uv.config.js", (req, res) => res.sendFile("uv/uv.config.js", publicPath));
 fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: false });
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// Async bootstrap
+// Bootstrap
 async function main() {
   const uv = await createBareServer();
 
