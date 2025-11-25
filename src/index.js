@@ -12,12 +12,23 @@ import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 import { createBareServer } from "@titaniumnetwork-dev/ultraviolet";
 
-// Create UV bare server
-const uv = await createBareServer();
+async function main() {
+  const uv = await createBareServer();
 
-// Route all /service/* requests through UV
-fastify.all("/service/*", (req, reply) => {
-  uv.handleRequest(req.raw, reply.raw);
+  // Route all /service/* requests through UV
+  fastify.all("/service/*", (req, reply) => {
+    uv.handleRequest(req.raw, reply.raw);
+  });
+
+  let port = parseInt(process.env.PORT || "");
+  if (isNaN(port)) port = 8080;
+
+  fastify.listen({ port, host: "0.0.0.0" });
+}
+
+main().catch(err => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
 
 const fastify = Fastify({
