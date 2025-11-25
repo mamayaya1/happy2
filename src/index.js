@@ -4,6 +4,7 @@ import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
+// ✅ Ultraviolet Node Archive API
 import ultraviolet from "@titaniumnetwork-dev/ultraviolet";
 const { uvPath, createBareServer } = ultraviolet;
 
@@ -11,36 +12,42 @@ import { publicPath } from "ultraviolet-static";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-// Create Fastify instance
+// Create Fastify instance with custom server factory
 const fastify = Fastify({
   serverFactory: (handler) => {
     return createServer()
       .on("request", (req, res) => {
+        // Security headers for COOP/COEP
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
         res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
         handler(req, res);
       })
       .on("upgrade", (req, socket, head) => {
-        if (req.url.endsWith("/wisp/")) wisp.routeRequest(req, socket, head);
-        else socket.end();
+        if (req.url.endsWith("/wisp/")) {
+          wisp.routeRequest(req, socket, head);
+        } else {
+          socket.end();
+        }
       });
   },
 });
 
 // Static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
-fastify.get("/uv/uv.config.js", (req, res) => res.sendFile("uv/uv.config.js", publicPath));
+fastify.get("/uv/uv.config.js", (req, res) =>
+  res.sendFile("uv/uv.config.js", publicPath)
+);
 fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: false });
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// Bootstrap
 async function main() {
-  const uv = await createBareServer();
+  // ✅ Use createBareServer from Ultraviolet-Node-Archive
+  const bare = createBareServer();
 
-  // 🔑 Ultraviolet proxy route
+  // Proxy route
   fastify.all("/service/*", (req, reply) => {
-    uv.request(req.raw, reply.raw);   // <-- correct method
+    bare.request(req.raw, reply.raw);
   });
 
   // Debug route
@@ -51,28 +58,13 @@ async function main() {
   let port = parseInt(process.env.PORT || "");
   if (isNaN(port)) port = 8080;
 
-  fastify.listen({ port, host: "0.0.0.0" }, (err, address) => {
+  fastify.listen({ port, host: "0.0.0.0" }, (err) => {
     if (err) {
       console.error(err);
       process.exit(1);
     }
-    const addr = fastify.server.address();
-    console.log("Listening on:");
-    console.log(`\thttp://localhost:${addr.port}`);
-    console.log(`\thttp://${hostname()}:${addr.port}`);
-    console.log(
-      `\thttp://${addr.family === "IPv6" ? `[${addr.address}]` : addr.address}:${addr.port}`
-    );
+    console.log(`Listening on http://${hostname()}:${port}`);
   });
-}
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-
-function shutdown() {
-  console.log("SIGTERM signal received: closing HTTP server");
-  fastify.close();
-  process.exit(0);
 }
 
 main().catch((err) => {
