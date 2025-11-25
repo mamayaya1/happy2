@@ -11,5 +11,6 @@
       "src": "/(.*)",
       "dest": "src/index.js"
     }
-  ]
+  ],
+  "installCommand": "pnpm install --no-frozen-lockfile"
 }
