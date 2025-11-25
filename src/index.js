@@ -36,12 +36,11 @@ fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decora
 async function main() {
   const uv = await createBareServer();
 
-  // 4. Register proxy route
+  // 🔑 Ultraviolet proxy route
   fastify.all("/service/*", (req, reply) => {
-    uv.handleRequest(req.raw, reply.raw);
+    uv.request(req.raw, reply.raw);   // <-- use .request, not .handleRequest
   });
 
-  // 5. Start server
   let port = parseInt(process.env.PORT || "");
   if (isNaN(port)) port = 8080;
 
