@@ -1,14 +1,15 @@
 import { createServer } from "node:http";
 import { hostname } from "node:os";
-import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-// static paths
 import { publicPath } from "ultraviolet-static";
 import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
+
+// Fast, reliable Bare server
+import { createBareServer } from "@tomphttp/bare-server-node";
 
 const fastify = Fastify({
   serverFactory: (handler) => {
@@ -19,8 +20,9 @@ const fastify = Fastify({
         handler(req, res);
       })
       .on("upgrade", (req, socket, head) => {
-        if (req.url.endsWith("/wisp/")) {
-          wisp.routeRequest(req, socket, head);
+        // Handle WebSocket upgrades if needed (BareMux/Epoxy)
+        if (req.url.startsWith("/baremux/")) {
+          // TODO: wire BareMux upgrade handler here
         } else {
           socket.end();
         }
@@ -30,36 +32,19 @@ const fastify = Fastify({
 
 // Static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
-
-fastify.get("/uv/uv.config.js", (req, res) => {
-  return res.sendFile("uv/uv.config.js", publicPath);
-});
-
+fastify.get("/uv/uv.config.js", (req, res) => res.sendFile("uv/uv.config.js", publicPath));
 fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: false });
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// Debug route
-fastify.get("/debug", async () => ({ ok: true }));
-
-fastify.server.on("listening", () => {
-  const address = fastify.server.address();
-  console.log("Listening on:");
-  console.log(`\thttp://localhost:${address.port}`);
-  console.log(`\thttp://${hostname()}:${address.port}`);
-  console.log(
-    `\thttp://${address.family === "IPv6" ? `[${address.address}]` : address.address}:${address.port}`
-  );
+// Bare proxy route
+const bare = createBareServer();
+fastify.all("/service/*", (req, reply) => {
+  bare.request(req.raw, reply.raw);
 });
 
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-
-function shutdown() {
-  console.log("SIGTERM signal received: closing HTTP server");
-  fastify.close();
-  process.exit(0);
-}
+// Debug route
+fastify.get("/debug", async () => ({ ok: true }));
 
 let port = parseInt(process.env.PORT || "");
 if (isNaN(port)) port = 8080;
@@ -69,4 +54,5 @@ fastify.listen({ port, host: "0.0.0.0" }, (err) => {
     console.error(err);
     process.exit(1);
   }
+  console.log(`Listening on http://${hostname()}:${port}`);
 });
