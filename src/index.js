@@ -4,7 +4,7 @@ import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-// ✅ Ultraviolet Node Archive API
+// Ultraviolet Node Archive API
 import ultraviolet from "@titaniumnetwork-dev/ultraviolet";
 const { uvPath, createBareServer } = ultraviolet;
 
@@ -12,12 +12,10 @@ import { publicPath } from "ultraviolet-static";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-// Create Fastify instance with custom server factory
 const fastify = Fastify({
   serverFactory: (handler) => {
     return createServer()
       .on("request", (req, res) => {
-        // Security headers for COOP/COEP
         res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
         res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
         handler(req, res);
@@ -42,15 +40,13 @@ fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateRe
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
 async function main() {
-  // ✅ Use createBareServer from Ultraviolet-Node-Archive
+  // ✅ Use createBareServer() function, not BareServer class
   const bare = createBareServer();
 
-  // Proxy route
   fastify.all("/service/*", (req, reply) => {
     bare.request(req.raw, reply.raw);
   });
 
-  // Debug route
   fastify.get("/debug", (req, reply) => {
     reply.send({ ok: true });
   });
