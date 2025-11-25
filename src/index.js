@@ -4,8 +4,9 @@ import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
-import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
+// static paths
 import { publicPath } from "ultraviolet-static";
+import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
@@ -29,17 +30,36 @@ const fastify = Fastify({
 
 // Static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
-fastify.get("/uv/uv.config.js", (req, res) =>
-  res.sendFile("uv/uv.config.js", publicPath)
-);
+
+fastify.get("/uv/uv.config.js", (req, res) => {
+  return res.sendFile("uv/uv.config.js", publicPath);
+});
+
 fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: false });
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// Example routes
-fastify.get("/debug", (req, reply) => {
-  reply.send({ ok: true });
+// Debug route
+fastify.get("/debug", async () => ({ ok: true }));
+
+fastify.server.on("listening", () => {
+  const address = fastify.server.address();
+  console.log("Listening on:");
+  console.log(`\thttp://localhost:${address.port}`);
+  console.log(`\thttp://${hostname()}:${address.port}`);
+  console.log(
+    `\thttp://${address.family === "IPv6" ? `[${address.address}]` : address.address}:${address.port}`
+  );
 });
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+function shutdown() {
+  console.log("SIGTERM signal received: closing HTTP server");
+  fastify.close();
+  process.exit(0);
+}
 
 let port = parseInt(process.env.PORT || "");
 if (isNaN(port)) port = 8080;
@@ -49,5 +69,4 @@ fastify.listen({ port, host: "0.0.0.0" }, (err) => {
     console.error(err);
     process.exit(1);
   }
-  console.log(`Listening on http://${hostname()}:${port}`);
 });
