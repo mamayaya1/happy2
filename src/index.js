@@ -4,8 +4,9 @@ import wisp from "wisp-server-node";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 
+// Import Ultraviolet as default (CommonJS)
 import ultraviolet from "@titaniumnetwork-dev/ultraviolet";
-const { uvPath, createBareServer } = ultraviolet;
+const { uvPath, BareServer } = ultraviolet;
 
 import { publicPath } from "ultraviolet-static";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
@@ -36,11 +37,12 @@ fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decora
 
 // Bootstrap
 async function main() {
-  const uv = await createBareServer();
+  // ✅ Use BareServer class instead of createBareServer
+  const bare = new BareServer();
 
-  // 🔑 Ultraviolet proxy route
+  // Proxy route
   fastify.all("/service/*", (req, reply) => {
-    uv.request(req.raw, reply.raw);   // <-- correct method
+    bare.request(req.raw, reply.raw);
   });
 
   // Debug route
@@ -51,28 +53,13 @@ async function main() {
   let port = parseInt(process.env.PORT || "");
   if (isNaN(port)) port = 8080;
 
-  fastify.listen({ port, host: "0.0.0.0" }, (err, address) => {
+  fastify.listen({ port, host: "0.0.0.0" }, (err) => {
     if (err) {
       console.error(err);
       process.exit(1);
     }
-    const addr = fastify.server.address();
-    console.log("Listening on:");
-    console.log(`\thttp://localhost:${addr.port}`);
-    console.log(`\thttp://${hostname()}:${addr.port}`);
-    console.log(
-      `\thttp://${addr.family === "IPv6" ? `[${addr.address}]` : addr.address}:${addr.port}`
-    );
+    console.log(`Listening on http://localhost:${port}`);
   });
-}
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
-
-function shutdown() {
-  console.log("SIGTERM signal received: closing HTTP server");
-  fastify.close();
-  process.exit(0);
 }
 
 main().catch((err) => {
