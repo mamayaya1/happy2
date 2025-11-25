@@ -38,7 +38,12 @@ async function main() {
 
   // 🔑 Ultraviolet proxy route
   fastify.all("/service/*", (req, reply) => {
-    uv.request(req.raw, reply.raw);   // <-- use .request, not .handleRequest
+    uv.request(req.raw, reply.raw);   // <-- correct method
+  });
+
+  // Debug route to confirm server is alive
+  fastify.get("/debug", (req, reply) => {
+    reply.send({ ok: true });
   });
 
   let port = parseInt(process.env.PORT || "");
