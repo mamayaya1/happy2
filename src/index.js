@@ -10,6 +10,15 @@ import { publicPath } from "ultraviolet-static";
 import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
+import { createBareServer } from "@titaniumnetwork-dev/ultraviolet";
+
+// Create UV bare server
+const uv = await createBareServer();
+
+// Route all /service/* requests through UV
+fastify.all("/service/*", (req, reply) => {
+  uv.handleRequest(req.raw, reply.raw);
+});
 
 const fastify = Fastify({
 	serverFactory: (handler) => {
