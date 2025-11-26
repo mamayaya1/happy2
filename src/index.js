@@ -9,29 +9,43 @@ import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-// Fast, reliable Bare server
 import { createBareServer } from "@tomphttp/bare-server-node";
+
+// ✅ Bare server instance (v2.0.6 API)
+// Must be a POSIX-style path string starting and ending with "/"
+const bareServer = createBareServer("/bare-data/");
 
 const fastify = Fastify({
   serverFactory: (handler) => {
-    return createServer()
-      .on("request", (req, res) => {
-        res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-        res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-        handler(req, res);
-      })
-      .on("upgrade", (req, socket, head) => {
-        // Handle WebSocket upgrades if needed (BareMux/Epoxy)
-        if (req.url.startsWith("/baremux/")) {
-          // TODO: wire BareMux upgrade handler here
-        } else {
-          socket.end();
-        }
-      });
+    const httpServer = createServer();
+
+    httpServer.on("request", (req, res) => {
+      res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+      res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+
+      // Let Bare handle /v1, /v2, /v3
+      if (req.url.startsWith("/v1/") || req.url.startsWith("/v2/") || req.url.startsWith("/v3/")) {
+        bareServer.routeRequest(req, res);
+      } else {
+        handler(req, res); // Fastify handles normal routes
+      }
+    });
+
+    httpServer.on("upgrade", (req, socket, head) => {
+      if (req.url.startsWith("/v1/") || req.url.startsWith("/v2/") || req.url.startsWith("/v3/")) {
+        bareServer.routeUpgrade(req, socket, head);
+      } else if (req.url.startsWith("/baremux/")) {
+        // TODO: BareMux upgrade handler
+      } else {
+        socket.end();
+      }
+    });
+
+    return httpServer;
   },
 });
 
-// Static assets
+// ✅ Ultraviolet static assets
 fastify.register(fastifyStatic, { root: publicPath, decorateReply: true });
 fastify.get("/uv/uv.config.js", (req, res) =>
   res.sendFile("uv/uv.config.js", publicPath)
@@ -40,16 +54,17 @@ fastify.register(fastifyStatic, { root: uvPath, prefix: "/uv/", decorateReply: f
 fastify.register(fastifyStatic, { root: epoxyPath, prefix: "/epoxy/", decorateReply: false });
 fastify.register(fastifyStatic, { root: baremuxPath, prefix: "/baremux/", decorateReply: false });
 
-// ✅ Bare proxy route — directory string must start and end with "/"
-const bare = createBareServer("/bare/");
-
-fastify.all("/service/*", (req, reply) => {
-  bare.request(req.raw, reply.raw);
+// ✅ Route to forward UV service requests directly to Bare
+fastify.all("/uv/service/*", (req, res) => {
+  // Rewrite the URL so Bare sees /v2/...
+  req.url = req.url.replace("/uv/service/", "/v2/");
+  bareServer.routeRequest(req.raw, res.raw);
 });
 
-// Debug route
+// ✅ Debug route
 fastify.get("/debug", async () => ({ ok: true }));
 
+// ✅ Start server
 let port = parseInt(process.env.PORT || "");
 if (isNaN(port)) port = 8080;
 
